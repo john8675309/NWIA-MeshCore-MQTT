@@ -1,8 +1,8 @@
 {
-  "version": "v0.1.0-pilot.1",
-  "path": "firmware/nwia-heltec-v3-v0.1.0-pilot.1-merged.bin",
-  "sha256": "6ef294942781bf9a2025f3af852d6ae957aa2e4580765229fb88069d20f6d4be",
-  "bytes": 1226224,
-  "source_commit": "3049f857729f20de2f7504ce799b1d910ed9f48a",
-  "release_url": "https://github.com/john8675309/NWIA-MeshCore-MQTT/releases/tag/v0.1.0-pilot.1"
+  "version": "v0.2.0-pilot.1",
+  "path": "firmware/nwia-heltec-v3-v0.2.0-pilot.1-merged.bin",
+  "sha256": "0ee702e5887f64f021f44908e340c4d803b846778265521a155dc506a3299e1c",
+  "bytes": 1228704,
+  "source_commit": "a153b2a5ee9656e27ff96cc2454b4d13ce8ce784",
+  "release_url": "https://github.com/john8675309/NWIA-MeshCore-MQTT/releases/tag/v0.2.0-pilot.1"
 }
