@@ -20,6 +20,14 @@ Wi-Fi/router loss, RF overlap and long-duration stability still need testing.
 Use one transmitting gateway per overlapping RF coverage area. This is not a
 production-ready or exactly-once delivery claim.
 
+## Download and flash
+
+[Download prebuilt firmware from Releases](https://github.com/john8675309/NWIA-MeshCore-MQTT/releases).
+Choose the **merged** image for a first installation and flash it at **0x0**.
+[Flashing instructions](nwia/releases/FLASHING.md) cover browser flashing,
+command-line flashing, backups and USB commissioning. No build is required.
+These are experimental pilot images for Heltec V3 with US915 radio defaults.
+
 ## Build
 
 ```bash
