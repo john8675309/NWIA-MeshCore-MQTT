@@ -306,6 +306,12 @@ void Dispatcher::checkSend() {
 
   outbound = _mgr->getNextOutbound(_ms->getMillis());
   if (outbound) {
+    // Network ingress may wait behind real RF traffic. Keep its envelope
+    // deadline all the way through the native airtime/CAD scheduler.
+    if (outbound->_nwia_mqtt_ingress && outbound->_nwia_mqtt_deadline &&
+        int32_t(_ms->getMillis() - outbound->_nwia_mqtt_deadline) >= 0) {
+      releasePacket(outbound); outbound = NULL; return;
+    }
     int len = 0;
     uint8_t raw[MAX_TRANS_UNIT];
 

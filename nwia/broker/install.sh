@@ -42,7 +42,7 @@ for item in "$@"; do
   password=$(openssl rand -hex 24)
   if [[ $first == 1 ]]; then mosquitto_passwd -b -c /etc/mosquitto/nwia.passwd "$user" "$password"; first=0
   else mosquitto_passwd -b /etc/mosquitto/nwia.passwd "$user" "$password"; fi
-  printf 'user %s\ntopic write nwiamesh/v1/pilot/packets/%s\ntopic read nwiamesh/v1/pilot/packets/+\n\n' "$user" "$mac" >> /etc/mosquitto/nwia.acl
+  printf 'user %s\ntopic write nwiamesh/v2/pilot/packets/%s\ntopic read nwiamesh/v2/pilot/packets/+\ntopic write nwiamesh/v1/pilot/packets/%s\ntopic read nwiamesh/v1/pilot/packets/+\n\n' "$user" "$mac" "$mac" >> /etc/mosquitto/nwia.acl
   printf 'Gateway: %s\nHost: %s\nPort: 8883\nGroup: pilot\nPassword: %s\n\n' "$user" "$broker_domain" "$password" >> /root/nwia-credentials.txt
 done
 chown mosquitto:mosquitto /etc/mosquitto/nwia.passwd /etc/mosquitto/nwia.acl

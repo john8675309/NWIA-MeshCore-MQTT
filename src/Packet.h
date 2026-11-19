@@ -49,6 +49,12 @@ public:
   uint8_t path[MAX_PATH_SIZE];
   uint8_t payload[MAX_PACKET_PAYLOAD];
   int8_t _snr;
+  // Local transport metadata, never serialized. Retained through native routing
+  // so a mutated MQTT ingress (notably traces) cannot be exported as new RF.
+  bool _nwia_mqtt_ingress = false;
+  uint32_t _nwia_mqtt_deadline = 0;
+  uint32_t _nwia_mqtt_created = 0;
+  bool _nwia_mqtt_forward = false;
 
   /**
    * \brief calculate the hash of payload + type

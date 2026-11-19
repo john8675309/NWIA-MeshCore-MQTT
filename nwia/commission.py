@@ -16,6 +16,7 @@ def main():
     parser.add_argument('--ssid', required=True)
     parser.add_argument('--name', default='NWIA Gateway')
     parser.add_argument('--group', default='pilot')
+    parser.add_argument('--mode', choices=['all', 'channel'], default='all')
     parser.add_argument('--expected-id', help='Optional expected 12-hex gateway MAC identity')
     args = parser.parse_args()
     link = serial.Serial(args.port, 115200, timeout=0.2, dsrdtr=False, rtscts=False)
@@ -50,11 +51,13 @@ def main():
             if 1 <= len(wifi.encode()) <= 64 and not any(c in wifi for c in '\r\n'):
                 break
             print('Wi-Fi password must be 1–64 bytes with no line breaks. Try again.')
-        while True:
-            channel = getpass.getpass('MeshCore chat-channel key, 32 hex characters (hidden): ')
-            if re.fullmatch('[0-9a-fA-F]{32}', channel):
-                break
-            print('The channel key must contain exactly 32 hexadecimal characters. Try again.')
+        channel = None
+        if args.mode == 'channel':
+            while True:
+                channel = getpass.getpass('MeshCore chat-channel key, 32 hex characters (hidden): ')
+                if re.fullmatch('[0-9a-fA-F]{32}', channel):
+                    break
+                print('The channel key must contain exactly 32 hexadecimal characters. Try again.')
         print('This NWIA build supports 12–16 admin-password characters. Standard companion firmware sends at most 15.')
         print('For normal app login, use 12–15 printable ASCII characters. 16 requires compatible companion firmware.')
         while True:
@@ -79,11 +82,14 @@ def main():
         for line in ['set radio 910.525,62.5,7,5', 'set tx 22', 'set name ' + args.name,
                      'set repeat on', 'set nwia.ssid ' + args.ssid,
                      'set nwia.host ' + args.broker, 'set nwia.port ' + str(args.mqtt_port),
-                     'set nwia.user ' + args.mqtt_user, 'set nwia.group ' + args.group]:
+                     'set nwia.user ' + args.mqtt_user, 'set nwia.group ' + args.group,
+                     'set nwia.mode ' + args.mode]:
             command(line)
         for line in ['password ' + admin, 'set nwia.wifiPassword ' + wifi,
-                     'set nwia.password ' + password, 'set nwia.channelkey ' + channel]:
+                     'set nwia.password ' + password]:
             command(line, secret=True)
+        if channel is not None:
+            command('set nwia.channelkey ' + channel, secret=True)
         command('set nwia.enabled on')
         link.write(b'reboot\r')
         print('Configuration saved. Waiting for reboot, Wi-Fi, TLS and the 65-second quarantine…')

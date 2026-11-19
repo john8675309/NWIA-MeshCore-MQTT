@@ -1,7 +1,7 @@
 # Standalone Heltec V3 MeshCore / Wi-Fi MQTT repeater
 
-This firmware keeps native MeshCore repeating active while bridging one
-selected 128-bit channel-text stream over a shared TLS MQTT broker. No
+This firmware keeps native MeshCore repeating active while transporting
+all current MeshCore packet families over a shared TLS MQTT broker. No
 companion computer is needed at the radio site. User phones continue using
 their normal companion radios and apps.
 
@@ -65,7 +65,7 @@ carriage return. Forwarding starts disabled. Inspect `get nwia.status` to
 obtain the MAC identity, then provision its broker account and ACL.
 
 The interactive helper accepts your deployment details as non-secret arguments
-and prompts locally without echo for passwords and the private channel key:
+and prompts locally without echo for passwords and, only in legacy channel mode, the private channel key:
 
 ```bash
 .venv/bin/python nwia/commission.py --port /dev/ttyUSB0 --broker mqtt.example.com --ssid YOUR_WIFI --mqtt-user gateway-a --name "NWIA Gateway" --group pilot
@@ -74,15 +74,15 @@ and prompts locally without echo for passwords and the private channel key:
 Optionally supply `--expected-id aabbccddeeff` to verify a specific device
 before sending secrets. `--mqtt-port` defaults to 8883. Credentials are saved
 to device NVS, not source code. Physical flash access is not protected by this
-firmware; keep backups private. The helper configures the target radio defaults,
+firmware; keep backups private. Full mode (the default) does not ask for a channel key. Use `--mode channel`
+only for the legacy selected-channel protocol. The helper configures the target radio defaults,
 changes the admin password, enables the bridge and reboots.
 
-A “pilot channel” simply means the MeshCore chat channel chosen for tests. It
-is not a radio frequency or a special channel type. Use the same channel key
-on test gateways and companions. The broker group label `pilot` is separate
-from that RF chat channel. Never assume a channel name alone determines its key.
-The key here is 16 bytes represented as 32 hexadecimal characters; companion
-apps may display a different import/export representation.
+The broker group `pilot` is an MQTT namespace, not a selected chat channel.
+Full mode transports all channels and other packet families without a gateway
+channel key. Existing companions continue using their existing channel keys.
+For legacy `--mode channel`, the selected key is 16 bytes represented as 32
+hexadecimal characters; app import/export formats may differ.
 
 Use 12–15 printable ASCII characters for normal app admin login. The gateway
 supports storing 16 characters, but standard companion firmware sends only 15.
@@ -117,38 +117,21 @@ connection was established, not subscriber or handheld delivery. `pub` counts
 sends, and `in` counts native mesh submissions rather than proven reception.
 Counters reset on reboot.
 
-## Traffic, security and outage behavior
+## Traffic, routing and outage behavior
 
-Only selected channel-text flood packets are bridged. DMs, ACKs, advertisements
-and management traffic stay on RF. Preserve paths, ciphertext and original
-sender/timestamp. The gateway possesses the selected channel key and can
-decrypt; no end-to-end secrecy from the gateway is claimed.
+Full mode transports all current MeshCore packet families, including DMs, ACKs,
+advertisements, all channels, management, discovery, traces and custom traffic.
+It preserves ciphertext and native paths, requires no channel key, and uses
+the v2 MQTT namespace. Normal authentication is still checked at destinations.
 
-- Bounded task queues; all native mesh allocation/processing stays on the
-  radio task. TLS/MQTT runs on core 0 at idle priority; the radio loop runs on
-  core 1. CPU is 240 MHz; watchdogs remain enabled.
-- Validated TLS, per-gateway credentials and strict publish ACLs. Clean MQTT
-  sessions, QoS 0, no retained data, no intentional outage backlog or retry.
-- Envelopes expire after 60 seconds; a 65-second boot quarantine prevents
-  replay from the previous RAM cache lifetime.
-- Original message timestamps must be within five minutes in the past and
-  30 seconds ahead. Handheld clocks must be synchronized.
-- 256 fingerprints retained for five minutes. Cache saturation drops new
-  bridge traffic instead of evicting live entries.
-- Two-second RF-first ingress grace; four pending ingress frames. Export and
-  injection are each limited to one packet per 15 seconds with no bursts.
-- MQTT-ingressed packets are never exported by the same gateway. Native path,
-  scope, hop and duplicate checks still apply. Already queued RF packets do
-  not carry an MQTT expiry deadline.
-
-Multiple overlapping gateways can still spend duplicate airtime. There is no
-shared primary/backup election or split-brain fencing. Start with one gateway
-per RF coverage area. Local RF repeating does not depend on Wi-Fi, NTP, TLS
-or MQTT. Internet-side failures must not block the radio loop.
+Read [FULL-PACKET-TRANSPORT.md](FULL-PACKET-TRANSPORT.md) for routing semantics,
+broker migration, legacy channel mode, scope rules, bounded queues and expiry.
+Native RF operation remains independent of internet connectivity. This is
+best-effort transport; finite RF airtime/queues can drop traffic.
 
 ## Acceptance checklist
 
-1. Provision two gateways with the same selected channel key and broker group,
+1. Provision two gateways with the same full transport mode and broker group,
    distinct accounts/MAC ACLs, and matching radio parameters.
 2. Wait 65 seconds after boot. Arrange sites without a direct/intermediate RF
    path, with a companion near each gateway.
@@ -157,7 +140,7 @@ or MQTT. Internet-side failures must not block the radio loop.
 4. Add RF overlap and inspect airtime/duplicate behavior.
 5. Disconnect broker/internet, then Wi-Fi; verify local RF reception and
    retransmission. Restore networking and check for stale replay.
-6. Test restarts, wrong credentials/CA/hostname/channel key, expired frames,
+6. Test restarts, wrong credentials/CA/hostname and malformed frames, expired frames,
    queue saturation and sustained traffic.
 7. Record observed results separately from compilation and host simulations.
 

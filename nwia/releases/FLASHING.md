@@ -63,13 +63,13 @@ python -m esptool --chip esp32s3 --port PORT --baud 460800 read_flash 0 ALL priv
 First installation / merged image:
 
 ```bash
-python -m esptool --chip esp32s3 --port PORT --baud 460800 write_flash 0x0 nwia-heltec-v3-v0.1.0-pilot.1-merged.bin
+python -m esptool --chip esp32s3 --port PORT --baud 460800 write_flash 0x0 nwia-heltec-v3-v0.2.0-pilot.1-merged.bin
 ```
 
 Existing NWIA installation / app-only update:
 
 ```bash
-python -m esptool --chip esp32s3 --port PORT --baud 460800 write_flash 0x10000 nwia-heltec-v3-v0.1.0-pilot.1-app.bin
+python -m esptool --chip esp32s3 --port PORT --baud 460800 write_flash 0x10000 nwia-heltec-v3-v0.2.0-pilot.1-app.bin
 ```
 
 Reduce baud to 115200 if transfer is unreliable. Refer to the official
@@ -78,7 +78,9 @@ Reduce baud to 115200 if transfer is unreliable. Refer to the official
 ## Configure after flashing
 
 The download contains **no operator Wi-Fi/MQTT credentials or private channel
-key**. A fresh installation has MQTT forwarding disabled. Normal repeater
+key**. A fresh installation defaults to full mode with MQTT forwarding disabled.
+Existing installations retain their enabled setting: add v2 broker ACLs and
+upgrade peer gateways before switching to full mode. Normal repeater
 operation follows compiled defaults or surviving stored preferences; the
 bootstrap admin password is `password`. **Change it during USB setup.**
 
@@ -91,8 +93,8 @@ python commission.py --port PORT --broker mqtt.example.com --ssid YOUR_WIFI --mq
 ```
 
 For a source checkout, the helper lives at `nwia/commission.py`. It prompts
-without echo for passwords and the 32-hex-character MeshCore channel key.
-The selected channel must also exist with the same key on your companions.
+without echo for passwords and, only in legacy channel mode, the MeshCore channel key.
+Full mode needs no channel key at the gateway; companions keep their existing channels and keys.
 Use a **12–15 character admin password** for compatibility with standard
 companion firmware; symbols such as `*` work. Although this gateway stores
 16 characters, standard companions truncate login passwords at 15.
@@ -105,8 +107,9 @@ After setup/reboot, expect `get nwia.status` to show ready=1, enabled=1,
 dirty=0 and mqtt=1. Wait **65 seconds after boot** before testing bridge
 traffic. Verify actual handheld reception in both directions.
 
-This experimental pilot bridges one selected channel-text stream; DMs, ACKs,
-advertisements and management stay on RF. It uses QoS 0 and does not promise
+This experimental full-packet pilot transports all current MeshCore packet families,
+including DMs, ACKs, advertisements, discovery and management. Broker ACLs
+and peer gateways must support v2; see FULL-PACKET-TRANSPORT.md. It uses QoS 0 and does not promise
 exactly-once delivery. Start with one gateway per overlapping RF area.
 See [the setup guide](https://github.com/john8675309/NWIA-MeshCore-MQTT/blob/main/nwia/README.md)
 and [validation record](https://github.com/john8675309/NWIA-MeshCore-MQTT/blob/main/nwia/VALIDATION.md) for limits and outstanding two-site/stability tests.

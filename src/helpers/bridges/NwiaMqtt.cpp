@@ -1,11 +1,13 @@
 #ifdef NWIA_MQTT
 #include "NwiaMqtt.h"
+#include "../../../nwia/PacketIdentity.h"
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
 #include <PubSubClient.h>
 #include <SHA256.h>
 #include <Utils.h>
 #include <time.h>
+#include <sys/time.h>
 #include <esp_mac.h>
 #if __has_include("../../../nwia/BrokerCA.h")
 #include "../../../nwia/BrokerCA.h"
@@ -16,12 +18,29 @@
 NwiaMqtt nwiaMqtt;
 
 void NwiaMqtt::fingerprint(const mesh::Packet& p, uint8_t hash[16]) const {
-  SHA256 sha;
-  const uint8_t type = p.getPayloadType();
-  sha.update(&type, 1); sha.update(p.payload, p.payload_len); sha.finalize(hash, 16);
+  nwia::packetFingerprint(p, mode(), hash);
 }
 
 bool NwiaMqtt::allowed(const mesh::Packet& p) const {
+  if (!ready) return false;
+  uint8_t raw[nwia::kMaxRaw];
+  const int length = p.getRawLength();
+  if (length < 3 || length > int(sizeof(raw)) || p.path_len > 255 || !mesh::Packet::isValidPathLen(p.path_len)) return false;
+  if (p.payload_len > MAX_PACKET_PAYLOAD) return false;
+  const size_t nRaw = p.writeTo(raw);
+  if (!nwia::validRaw(raw, nRaw, mode())) return false;
+  if (config.allPackets) {
+    // Direct zero-hop adverts are mirrored even when native routing releases
+    // them. Authenticate their public signature before permitting that path.
+    if (p.getPayloadType() == PAYLOAD_TYPE_ADVERT) {
+      mesh::Identity id(p.payload);
+      uint8_t message[36 + MAX_ADVERT_DATA_SIZE];
+      memcpy(message, p.payload, 36);
+      memcpy(message + 36, p.payload + 100, p.payload_len - 100);
+      return id.verify(p.payload + 36, message, 36 + p.payload_len - 100);
+    }
+    return true; // Opaque encrypted traffic needs no channel key/decryption.
+  }
   if (!ready || p.getPayloadType() != PAYLOAD_TYPE_GRP_TXT || !p.isRouteFlood() ||
       p.getPayloadVer() != 0 || p.payload_len < 19 || p.payload[0] != channelHash) return false;
   uint8_t scratch[MAX_PACKET_PAYLOAD];
@@ -42,6 +61,7 @@ void NwiaMqtt::begin(mesh::PacketManager* m) {
   auto load = [this](const char* key, char* dest, size_t n) {
     const String value = prefs.getString(key, ""); strlcpy(dest, value.c_str(), n);
   };
+  config.allPackets = prefs.getString("mode", "all") == "all";
   load("ssid", config.ssid, sizeof(config.ssid));
   load("wifiPassword", config.wifiPassword, sizeof(config.wifiPassword));
   load("host", config.host, sizeof(config.host));
@@ -56,12 +76,12 @@ void NwiaMqtt::begin(mesh::PacketManager* m) {
   SHA256 sha; sha.update(channelKey, 16); sha.finalize(&channelHash, 1);
   esp_read_mac(origin, ESP_MAC_WIFI_STA);
   snprintf(nodeId, sizeof(nodeId), "%02x%02x%02x%02x%02x%02x", origin[0], origin[1], origin[2], origin[3], origin[4], origin[5]);
-  snprintf(pubTopic, sizeof(pubTopic), "nwiamesh/v1/%s/packets/%s", config.group, nodeId);
-  snprintf(subTopic, sizeof(subTopic), "nwiamesh/v1/%s/packets/+", config.group);
+  snprintf(pubTopic, sizeof(pubTopic), "nwiamesh/v%u/%s/packets/%s", config.allPackets ? 2 : 1, config.group, nodeId);
+  snprintf(subTopic, sizeof(subTopic), "nwiamesh/v%u/%s/packets/+", config.allPackets ? 2 : 1, config.group);
   ready = config.ssid[0] && config.host[0] && config.user[0] && config.password[0] &&
-          config.group[0] && hasKey && strlen(NWIA_BROKER_CA) > 64;
+          config.group[0] && (config.allPackets || hasKey) && strlen(NWIA_BROKER_CA) > 64;
   enabled = prefs.getBool("enabled", false);
-  outQueue = xQueueCreate(8, sizeof(Wire)); inQueue = xQueueCreate(8, sizeof(Wire));
+  outQueue = xQueueCreate(16, sizeof(Wire)); inQueue = xQueueCreate(16, sizeof(Wire));
   if (!outQueue || !inQueue) { ready = false; Serial.println("NWIA: queue allocation failed"); return; }
   // Share core 0 with its idle task, even during expensive TLS crypto. Keep
   // core 1 available for MeshCore, and leave watchdog coverage enabled.
@@ -80,17 +100,30 @@ void NwiaMqtt::heard(mesh::Packet* p) {
 }
 
 void NwiaMqtt::sent(mesh::Packet* p) {
-  // Called only after native repeater forwarding: native scope and hop rules apply.
-  if (!enabled || dirty || !connected || !allowed(*p) || uint32_t(millis() - bootAt) < 65000) return;
+  // Native hop/path changes have already happened. Forwarding ingress metadata
+  // survives those changes, including newly allocated ACK forwards.
+  if (!nwia::mayExport(*p, mode())) return;
+  publish(*p);
+}
+
+void NwiaMqtt::unforwarded(const mesh::Packet& original) {
+  if (config.allPackets && !original._nwia_mqtt_ingress) publish(original);
+}
+
+void NwiaMqtt::publish(const mesh::Packet& p) {
+  if (!enabled || dirty || !connected || !allowed(p) || uint32_t(millis() - bootAt) < 65000) return;
   const uint32_t now = millis();
-  uint8_t hash[16]; fingerprint(*p, hash);
+  uint8_t hash[16]; fingerprint(p, hash);
   if (cache.flags(hash, now) & (nwia::Uploaded | nwia::Injected)) { suppressed++; return; }
-  if (int32_t(now - nextPublish) < 0) { dropped++; return; }
-  uint8_t raw[250]; const int length = p->getRawLength();
-  if (length > 250 || length < 0) { dropped++; return; }
-  const size_t n = p->writeTo(raw);
+  // Legacy channel pilot keeps its original low-volume policy. Full transport
+  // uses bounded queues and the native radio's airtime scheduler instead.
+  if (!config.allPackets && int32_t(now - nextPublish) < 0) { dropped++; return; }
+  uint8_t raw[nwia::kMaxRaw];
+  const size_t n = p.writeTo(raw);
   Wire w{}; w.queuedAt = now;
-  w.size = nwia::encode(w.bytes, origin, time(nullptr), raw, n);
+  const uint32_t created = p._nwia_mqtt_ingress ? p._nwia_mqtt_created : uint32_t(time(nullptr));
+  if (!created || uint64_t(created) + nwia::kWireTtl <= uint64_t(time(nullptr))) { dropped++; return; }
+  w.size = nwia::encode(w.bytes, origin, created, raw, n, mode());
   if (!w.size || !cache.mark(hash, nwia::Uploaded, now)) { dropped++; return; }
   nextPublish = now + 15000;
   if (xQueueSend(outQueue, &w, 0) != pdTRUE) dropped++;
@@ -103,7 +136,7 @@ void NwiaMqtt::loop() {
   // Bound callback processing per iteration so a broker cannot monopolize the radio loop.
   for (int count = 0; count < 2 && xQueueReceive(inQueue, &w, 0) == pdTRUE; ++count) {
     nwia::Envelope e{};
-    if (!nwia::decode(w.bytes, w.size, time(nullptr), e) || !memcmp(e.origin, origin, 6)) { dropped++; continue; }
+    if (!nwia::decode(w.bytes, w.size, time(nullptr), e, mode()) || !memcmp(e.origin, origin, 6)) { dropped++; continue; }
     mesh::Packet p;
     if (!p.readFrom(e.raw, e.rawSize) || !allowed(p)) { dropped++; continue; }
     uint8_t hash[16]; fingerprint(p, hash);
@@ -116,7 +149,7 @@ void NwiaMqtt::loop() {
     }
     if (queued) { suppressed++; continue; }
     if (!freeSlot) { dropped++; continue; }
-    freeSlot->used = true; freeSlot->due = now + 2000;
+    freeSlot->used = true; freeSlot->due = now + (config.allPackets ? (p.isRouteDirect() ? 0 : 250) : 2000);
     freeSlot->expires = e.created + nwia::kWireTtl;
     freeSlot->size = e.rawSize; memcpy(freeSlot->raw, e.raw, e.rawSize); memcpy(freeSlot->hash, hash, 16);
   }
@@ -124,12 +157,24 @@ void NwiaMqtt::loop() {
     if (!item.used) continue;
     if (cache.flags(item.hash, now)) { item.used = false; suppressed++; continue; }
     if (time(nullptr) >= item.expires) { item.used = false; dropped++; continue; }
-    if (int32_t(now - item.due) < 0 || int32_t(now - nextInject) < 0) continue;
+    if (int32_t(now - item.due) < 0 || (!config.allPackets && int32_t(now - nextInject) < 0)) continue;
+    // Reserve capacity for ordinary RF packets and local replies.
+    if (manager->getFreeCount() <= 4 || manager->getOutboundTotal() >= 8) continue;
     // Reserve identity BEFORE native processing/transmission. No live-cache eviction.
     if (!cache.mark(item.hash, nwia::Injected, now)) { item.used = false; dropped++; continue; }
     mesh::Packet* p = manager->allocNew();
     if (!p) { item.used = false; dropped++; continue; }
     if (!p->readFrom(item.raw, item.size)) { manager->free(p); item.used = false; dropped++; continue; }
+    p->_nwia_mqtt_ingress = true;
+    p->_nwia_mqtt_created = item.expires - nwia::kWireTtl;
+    timeval wall{}; gettimeofday(&wall, nullptr);
+    const uint64_t wallMs = uint64_t(wall.tv_sec) * 1000 + wall.tv_usec / 1000;
+    const uint64_t expiryMs = uint64_t(item.expires) * 1000;
+    if (expiryMs <= wallMs || expiryMs - wallMs > (nwia::kWireTtl + 2) * 1000) {
+      manager->free(p); item.used = false; dropped++; continue;
+    }
+    p->_nwia_mqtt_deadline = millis() + uint32_t(expiryMs - wallMs);
+    if (!p->_nwia_mqtt_deadline) p->_nwia_mqtt_deadline = 1;
     p->_snr = 0; // Synthetic ingress; no RF signal measurement is implied.
     // Preserve route, path and ciphertext. Native Mesh processing validates scope,
     // duplicate hashes, hop limits and path loops before it schedules RF output.
@@ -148,10 +193,10 @@ void NwiaMqtt::worker() {
   mqtt.setServer(config.host, config.port); mqtt.setBufferSize(512); mqtt.setSocketTimeout(2);
   mqtt.setKeepAlive(20);
   mqtt.setCallback([this](char* topic, uint8_t* payload, unsigned int length) {
-    const String prefix = String("nwiamesh/v1/") + config.group + "/packets/";
+    const String prefix = String("nwiamesh/v") + (config.allPackets ? "2/" : "1/") + config.group + "/packets/";
     if (!String(topic).startsWith(prefix) || strlen(topic + prefix.length()) != 12 || length > nwia::kMaxWire) { dropped++; return; }
     nwia::Envelope e{};
-    if (!nwia::decode(payload, length, time(nullptr), e)) { dropped++; return; }
+    if (!nwia::decode(payload, length, time(nullptr), e, mode())) { dropped++; return; }
     char id[13]; snprintf(id, sizeof(id), "%02x%02x%02x%02x%02x%02x", e.origin[0], e.origin[1], e.origin[2], e.origin[3], e.origin[4], e.origin[5]);
     if (strcmp(topic + prefix.length(), id)) { dropped++; return; }
     Wire w{}; w.size = length; w.queuedAt = millis(); memcpy(w.bytes, payload, length);
@@ -204,7 +249,7 @@ void NwiaMqtt::worker() {
 
 bool NwiaMqtt::command(char* line, char* reply) {
   if (!strcmp(line, "get nwia.status")) {
-    snprintf(reply, 160, "id=%s ready=%d enabled=%d dirty=%d mqtt=%d pub=%lu in=%lu drop=%lu dup=%lu", nodeId,
+    snprintf(reply, 160, "id=%s mode=%s ready=%d enabled=%d dirty=%d mqtt=%d pub=%lu in=%lu drop=%lu dup=%lu", nodeId, config.allPackets ? "all" : "channel",
       int(ready.load()), int(enabled.load()), int(dirty.load()), int(connected.load()),
       (unsigned long)published.load(), (unsigned long)accepted.load(), (unsigned long)dropped.load(), (unsigned long)suppressed.load());
     return true;
@@ -224,6 +269,10 @@ bool NwiaMqtt::command(char* line, char* reply) {
     char* name = line + 9; char* value = strchr(name, ' ');
     if (!value) { strcpy(reply, "ERR missing value"); return true; }
     *value++ = 0;
+    if (!strcmp(name, "mode")) {
+      if (strcmp(value, "all") && strcmp(value, "channel")) { strcpy(reply, "ERR use all/channel"); return true; }
+      dirty = true; prefs.putString("mode", value); strcpy(reply, "OK saved; reboot required"); return true;
+    }
     if (!strcmp(name, "enabled")) {
       if (strcmp(value, "on") && strcmp(value, "off")) { strcpy(reply, "ERR use on/off"); return true; }
       const bool on = !strcmp(value, "on");

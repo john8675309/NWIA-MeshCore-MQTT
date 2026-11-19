@@ -76,7 +76,9 @@ StaticPoolPacketManager::StaticPoolPacketManager(int pool_size): unused(pool_siz
 }
 
 mesh::Packet* StaticPoolPacketManager::allocNew() {
-  return unused.removeByIdx(0);  // just get first one (returns NULL if empty)
+  mesh::Packet* packet = unused.removeByIdx(0);
+  if (packet) { packet->_nwia_mqtt_ingress = false; packet->_nwia_mqtt_deadline = 0; packet->_nwia_mqtt_created = 0; packet->_nwia_mqtt_forward = false; }
+  return packet;
 }
 
 void StaticPoolPacketManager::free(mesh::Packet* packet) {

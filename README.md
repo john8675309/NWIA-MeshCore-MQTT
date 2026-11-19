@@ -1,7 +1,7 @@
 # NWIA MeshCore MQTT gateway for Heltec V3
 
 Experimental standalone firmware that keeps a Heltec V3 running as a native
-MeshCore LoRa repeater while bridging one selected encrypted chat channel
+MeshCore LoRa repeater while transporting all current MeshCore packet families
 bidirectionally through MQTT over Wi-Fi. No companion computer is required at
 each gateway. A shared TLS MQTT broker runs elsewhere.
 
@@ -49,19 +49,30 @@ are excluded from this repository.
 Read [the setup guide](nwia/README.md), [validation record](nwia/VALIDATION.md),
 and [broker example](nwia/broker/mosquitto.conf) before using the firmware.
 
-## Important behavior
+## Full-packet transport
 
-Only the selected 128-bit channel-text traffic is bridged. Direct messages,
-ACKs, advertisements and remote management remain local RF traffic. Native
-paths, hop rules and ciphertext are preserved. The gateway holds the selected
-channel key and can decrypt it; MQTT carries the original encrypted packet.
-Native channel MACs are short, so trusted operators and strict broker ACLs
-remain necessary.
+The current firmware defaults to `mode=all`: DMs, ACKs, advertisements, group
+text/data, requests/responses, anonymous login, path returns, traces, multipart
+ACKs, control/discovery and custom data. No channel key is required at the
+gateway. Existing endpoint encryption and authentication remain intact.
 
-The bridge starts disabled and waits 65 seconds after boot. Local RF repeating
-does not depend on MQTT. Wi-Fi/TLS/MQTT work runs separately from the radio
-loop, with bounded queues, rate limits, freshness checks and duplicate caches.
+Packets routed through a gateway use native MeshCore hop handling. Direct
+packets for another repeater can cross a virtual RF segment and be re-radiated
+with the next-hop path intact. Flood scope/hop/loop rules and the native
+airtime scheduler remain active. This is best-effort transport under finite
+radio/queue capacity, not a guarantee to deliver every overheard frame.
+
+Full transport uses `nwiamesh/v2/...` and NWI2 envelopes. Upgrade broker ACLs
+and peer gateways together. `set nwia.mode channel` retains the older
+one-channel v1 pilot behavior for compatibility. **The v0.1.0-pilot.1 release
+was channel-only; use the full-packet release for this behavior.**
+
+The bridge starts disabled on fresh devices and waits 65 seconds after boot.
+Local RF repeating stays independent of MQTT. Network work runs separately
+from the radio loop, with bounded queues, expiry and duplicate suppression.
 No automatic primary/backup election is implemented.
+
+See [full-packet routing and migration](nwia/FULL-PACKET-TRANSPORT.md).
 
 ## App login
 

@@ -275,7 +275,8 @@ DispatcherAction Mesh::onRecvPacket(Packet* pkt) {
           int msg_len = 0;
           memcpy(&message[msg_len], id.pub_key, PUB_KEY_SIZE); msg_len += PUB_KEY_SIZE;
           memcpy(&message[msg_len], &timestamp, 4); msg_len += 4;
-          memcpy(&message[msg_len], app_data, app_data_len); msg_len += app_data_len;
+          if (app_data_len) memcpy(&message[msg_len], app_data, app_data_len);
+    msg_len += app_data_len;
 
           is_ok = id.verify(signature, message, msg_len);
         }
@@ -308,6 +309,10 @@ DispatcherAction Mesh::onRecvPacket(Packet* pkt) {
           tmp.path_len = Packet::copyPath(tmp.path, pkt->path, pkt->path_len);
           tmp.payload_len = pkt->payload_len - 1;
           memcpy(tmp.payload, &pkt->payload[1], tmp.payload_len);
+    tmp._nwia_mqtt_ingress = pkt->_nwia_mqtt_ingress;
+    tmp._nwia_mqtt_deadline = pkt->_nwia_mqtt_deadline;
+    tmp._nwia_mqtt_created = pkt->_nwia_mqtt_created;
+    tmp._nwia_mqtt_forward = pkt->_nwia_mqtt_forward;
 
           if (!_tables->wasSeen(&tmp)) {
             _tables->markSeen(&tmp);
@@ -366,6 +371,10 @@ DispatcherAction Mesh::forwardMultipartDirect(Packet* pkt, uint32_t delay_millis
     tmp.path_len = Packet::copyPath(tmp.path, pkt->path, pkt->path_len);
     tmp.payload_len = pkt->payload_len - 1;
     memcpy(tmp.payload, &pkt->payload[1], tmp.payload_len);
+    tmp._nwia_mqtt_ingress = pkt->_nwia_mqtt_ingress;
+    tmp._nwia_mqtt_deadline = pkt->_nwia_mqtt_deadline;
+    tmp._nwia_mqtt_created = pkt->_nwia_mqtt_created;
+    tmp._nwia_mqtt_forward = pkt->_nwia_mqtt_forward;
 
     if (!_tables->wasSeen(&tmp)) {   // don't retransmit!
       _tables->markSeen(&tmp);
@@ -382,6 +391,10 @@ void Mesh::routeDirectRecvAcks(Packet* packet, uint32_t delay_millis) {
     while (extra > 0) {
       auto a1 = createMultiAck(packet->payload, packet->payload_len, extra);
       if (a1) {
+        a1->_nwia_mqtt_ingress = packet->_nwia_mqtt_ingress;
+        a1->_nwia_mqtt_deadline = packet->_nwia_mqtt_deadline;
+        a1->_nwia_mqtt_created = packet->_nwia_mqtt_created;
+        a1->_nwia_mqtt_forward = packet->_nwia_mqtt_forward;
         a1->path_len = Packet::copyPath(a1->path, packet->path, packet->path_len);
         a1->header &= ~PH_ROUTE_MASK;
         a1->header |= ROUTE_TYPE_DIRECT;
@@ -393,6 +406,10 @@ void Mesh::routeDirectRecvAcks(Packet* packet, uint32_t delay_millis) {
 
     auto a2 = createAck(packet->payload, packet->payload_len);
     if (a2) {
+      a2->_nwia_mqtt_ingress = packet->_nwia_mqtt_ingress;
+      a2->_nwia_mqtt_deadline = packet->_nwia_mqtt_deadline;
+      a2->_nwia_mqtt_created = packet->_nwia_mqtt_created;
+      a2->_nwia_mqtt_forward = packet->_nwia_mqtt_forward;
       a2->path_len = Packet::copyPath(a2->path, packet->path, packet->path_len);
       a2->header &= ~PH_ROUTE_MASK;
       a2->header |= ROUTE_TYPE_DIRECT;
@@ -420,7 +437,8 @@ Packet* Mesh::createAdvert(const LocalIdentity& id, const uint8_t* app_data, siz
 
   uint8_t* signature = &packet->payload[len]; len += SIGNATURE_SIZE;  // will fill this in later
 
-  memcpy(&packet->payload[len], app_data, app_data_len); len += app_data_len;
+  if (app_data_len) memcpy(&packet->payload[len], app_data, app_data_len);
+  len += app_data_len;
 
   packet->payload_len = len;
 
@@ -429,7 +447,8 @@ Packet* Mesh::createAdvert(const LocalIdentity& id, const uint8_t* app_data, siz
     int msg_len = 0;
     memcpy(&message[msg_len], id.pub_key, PUB_KEY_SIZE); msg_len += PUB_KEY_SIZE;
     memcpy(&message[msg_len], &emitted_timestamp, 4); msg_len += 4;
-    memcpy(&message[msg_len], app_data, app_data_len); msg_len += app_data_len;
+    if (app_data_len) memcpy(&message[msg_len], app_data, app_data_len);
+    msg_len += app_data_len;
 
     id.sign(signature, message, msg_len);
   }

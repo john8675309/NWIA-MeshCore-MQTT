@@ -75,3 +75,70 @@ Upstream MeshCore commit: 75b04ef06def54b348400cb1b138afb6749ffd4f.
 Existing MIT and third-party licenses are retained. Dependency versions and
 checksums are in vendor-lock.json. ISRG Root X1 is a public trust anchor.
 No passwords, private channel keys, private CA keys or flash dumps are included.
+
+## Full-packet v2 development — 2026-11-19
+
+The earlier hardware results above describe the channel-only v0.1 pilot.
+The new default `mode=all` uses v2 topics / NWI2 envelopes and covers all 13
+current payload families without a channel key.
+
+Passed on the updated source:
+- ASan/UBSan native tests for all payload families, four route encodings,
+  1/2/3-byte paths, full-size frames, version isolation, skew and fuzz/truncation.
+- Actual MeshCore two-gateway routing with real encrypted endpoints: DM,
+  requests/responses, anonymous-login transport, path returns and signed adverts.
+- Foreign-hop and zero-hop delivery, scope/duplicate guards, trace forwarding,
+  ACK-clone ingress/deadline metadata, pool reuse and expiry before radio TX.
+- The ref10 C dependency retains known signed-shift idioms; only its shift-base
+  instrumentation is excluded, explicitly. ASan and other UBSan checks stay on;
+  project C++ uses strict UBSan halt-on-error. A zero-length/null app-data copy
+  in native advert creation exposed by those tests was corrected.
+- ESP32-S3 compile/link/merged image: static RAM 90,036 / 327,680; flash
+  1,162,461 / 3,342,336 bytes.
+
+Live gateway candidate checks (operator identifiers omitted):
+- Fresh full-device backup taken privately; correct hardware identity verified.
+- Upload checksum passed; existing device identity/settings survived.
+- `mode=all ready=1 enabled=1 dirty=0 mqtt=1`; TLS result 0, heap around
+  146 KB, network-task stack margin 6920 bytes, core errors 0.
+- Broker ACL extended with exact per-gateway v2 write/read permissions while
+  retaining v1 entries; no password change.
+- An authenticated temporary test origin sent a real ECDH/AES/MAC anonymous
+  read-only clock request over MQTT. The actual gateway processed it and
+  returned its native encrypted response via RF TX and MQTT. The ephemeral
+  client verified/decrypted the response and checked request tag and clock.
+  `in=1`, `pub=1`; temporary account/ACL removed.
+
+Live full-mode checks for RF chat, DM, advertisements and app management passed. Two
+physical gateways at RF-isolated sites and long-duration acceptance remain
+required; the native two-gateway harness is not represented as radio proof.
+
+Additional live full-mode results:
+- User sent a DM to an offline recipient. Its type-2 encrypted flood packet
+  was repeated over RF and observed on v2 MQTT. No recipient-delivery claim.
+- User sent a Public-channel message. Type-5 group traffic appeared on v2 MQTT.
+- User confirmed successful iPhone app login. The independent MQTT observer
+  captured type-7 login, type-1 encrypted replies and type-0 follow-up management
+  traffic while local app operation continued normally.
+- Uptime exceeded five minutes, TLS remained connected, core errors stayed 0,
+  and free heap remained about 146 KB during these live checks.
+
+- A native signed flood advert was requested over USB and observed as type 4
+  on v2 MQTT after RF transmission.
+- A later routing test covered an origin at a third site and multiple MQTT
+  legs: foreign mirrors do not mark native payload-only seen state; a consumed
+  direct hop may re-export the shortened route with the original TTL. Per-stage
+  transport fingerprints suppress unchanged echoes without blocking progress.
+  That corrective candidate was rebuilt and reflashed for final checks.
+
+Final live routing correction checks:
+- Final candidate booted in full mode and reconnected with core errors 0.
+- The encrypted read-only anonymous clock exchange passed again.
+- A valid anonymous request addressed to an ephemeral test endpoint was sent
+  through MQTT with this gateway as the next hop and a deliberately older
+  envelope timestamp. The real gateway consumed its own path entry, transmitted
+  the shortened direct packet, and re-exported it through MQTT. The independent
+  client verified identical ciphertext and unchanged original creation/expiry.
+- Temporary test account/ACL removed; normal gateway account retained.
+- These are single-gateway physical tests plus multi-gateway native simulations,
+  not a two-site RF-isolated acceptance test or a production-readiness claim.

@@ -1,5 +1,6 @@
 #ifdef NWIA_MQTT
 #include <helpers/bridges/NwiaMqtt.h>
+#include <helpers/bridges/NwiaRouting.h>
 #endif
 #include "MyMesh.h"
 #include <algorithm>
@@ -574,7 +575,16 @@ mesh::DispatcherAction MyMesh::onRecvPacket(mesh::Packet* pkt) {
   } else {
     recv_pkt_region = NULL;
   }
+#ifdef NWIA_MQTT
+  const bool fullMode = nwiaMqtt.allPackets();
+  const bool nextSelf = fullMode && nwia::nextHopIsSelf(*pkt, self_id);
+  const bool seen = fullMode && pkt->_nwia_mqtt_ingress && pkt->isRouteDirect() && getTables()->wasSeen(pkt);
+  return nwia::routePacket(pkt, fullMode, fullMode && allowPacketForward(pkt), nextSelf, seen,
+      [&]() { return Mesh::onRecvPacket(pkt); },
+      [&](const mesh::Packet& p) { nwiaMqtt.unforwarded(p); });
+#else
   return Mesh::onRecvPacket(pkt);
+#endif
 }
 
 void MyMesh::onAnonDataRecv(mesh::Packet *packet, const uint8_t *secret, const mesh::Identity &sender,
@@ -661,7 +671,7 @@ void MyMesh::onAdvertRecv(mesh::Packet *packet, const mesh::Identity &id, uint32
   mesh::Mesh::onAdvertRecv(packet, id, timestamp, app_data, app_data_len); // chain to super impl
 
   // if this a zero hop advert (and not via 'Share'), add it to neighbours
-  if (packet->getPathHashCount() == 0 && !isShare(packet)) {
+  if (!packet->_nwia_mqtt_ingress && packet->getPathHashCount() == 0 && !isShare(packet)) {
     AdvertDataParser parser(app_data, app_data_len);
     if (parser.isValid() && parser.getType() == ADV_TYPE_REPEATER) { // just keep neigbouring Repeaters
       putNeighbour(id, timestamp, packet->getSNR());
@@ -848,7 +858,7 @@ void MyMesh::onControlDataRecv(mesh::Packet* packet) {
     if (id.matches(self_id)) {
       return;
     }
-    putNeighbour(id, rtc_clock.getCurrentTime(), packet->getSNR());
+    if (!packet->_nwia_mqtt_ingress) putNeighbour(id, rtc_clock.getCurrentTime(), packet->getSNR());
   }
 }
 
