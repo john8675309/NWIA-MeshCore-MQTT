@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Install the standalone Northwest Iowa MeshCore LoRa / Wi-Fi MQTT firmware on a Heltec V3 directly from your browser.">
+  <title>Heltec V3 Web Flasher · Northwest Iowa Mesh</title>
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+  <script type="module" src="app.js"></script>
+</head>
+<body>
+  <div class="site-shell">
+    <header class="site-header">
+      <a class="brand" href="./" aria-label="Northwest Iowa Mesh home"><img src="icon.svg" width="38" height="38" alt=""><span>Northwest Iowa <strong>Mesh</strong></span></a>
+      <nav aria-label="Main navigation"><a href="https://github.com/john8675309/NWIA-MeshCore-MQTT">Source code</a><a href="https://github.com/john8675309/NWIA-MeshCore-MQTT/releases">Downloads</a></nav>
+    </header>
+    <main>
+      <section class="intro" aria-labelledby="page-title">
+        <div class="eyebrow">HELTEC V3 · BROWSER INSTALLER</div>
+        <h1 id="page-title">Flash your Heltec.<br><span>Connect your mesh.</span></h1>
+        <p class="lede">MeshCore LoRa repeating and a Wi-Fi MQTT bridge, running on one board. Install the pilot firmware over USB. No build tools required.</p>
+      </section>
+      <div class="install-layout">
+        <section class="steps" aria-labelledby="before-heading">
+          <h2 id="before-heading">A few minutes. One USB cable.</h2>
+          <ol>
+            <li><strong>Connect your Heltec V3</strong><p>Attach its antenna and plug it into your computer with a USB data cable. Close other apps using the serial port.</p></li>
+            <li><strong>Install from your browser</strong><p>Use desktop Chrome or Edge. Choose the USB serial port when prompted, then select Install in the device dialog.</p></li>
+            <li><strong>Add your own settings</strong><p>After flashing, configure Wi-Fi, your TLS MQTT broker and a shared MeshCore channel over USB. MQTT forwarding starts disabled on a fresh device.</p></li>
+          </ol>
+          <div class="notice"><strong>Before you replace existing firmware</strong><p>Back up any identity or settings you need. This merged image overwrites saved Wi-Fi/MQTT settings. Choosing a full erase also removes device identity and other saved data.</p></div>
+          <a class="text-link" href="https://github.com/john8675309/NWIA-MeshCore-MQTT/blob/main/nwia/releases/FLASHING.md">Read backup and flashing instructions</a>
+        </section>
+        <section class="firmware-card" aria-labelledby="firmware-heading">
+          <div class="card-topline"><span>STANDALONE GATEWAY</span><span class="badge">Experimental pilot</span></div>
+          <h2 id="firmware-heading">Heltec WiFi LoRa 32 V3</h2>
+          <p class="hardware">ESP32-S3 · SX1262 · 8 MB flash</p>
+          <div class="version-row"><span>Firmware version</span><strong id="version">v0.1.0-pilot.1</strong></div>
+          <dl class="radio-specs"><div><dt>Frequency</dt><dd>910.525 MHz</dd></div><div><dt>Bandwidth</dt><dd>62.5 kHz</dd></div><div><dt>Spreading / coding</dt><dd>SF7 / CR5</dd></div><div><dt>TX power</dt><dd>22 dBm</dd></div></dl>
+          <p class="compatibility">US915 defaults. Match your radio hardware and network before transmitting. For Heltec V3 only; V2, V4 and other ESP32 boards need their own firmware.</p>
+          <label class="acknowledgment"><input id="confirm-board" type="checkbox"><span>I have a Heltec V3 with its antenna attached and have backed up any settings I need.</span></label>
+          <esp-web-install-button id="installer" manifest="manifest.json">
+            <button id="connect" slot="activate" type="button" disabled>Connect Heltec V3</button>
+            <p slot="unsupported">This browser cannot access the USB serial port. Open this page in desktop Chrome or Edge.</p>
+            <p slot="not-allowed">Open the HTTPS version of this page to use USB flashing.</p>
+          </esp-web-install-button>
+          <p id="browser-status" class="browser-status" role="status" aria-live="polite">Checking browser and firmware…</p>
+          <p id="integrity-status" class="integrity-status" role="status" aria-live="polite">Verifying the release download…</p>
+          <button id="retry" class="retry" type="button" hidden>Retry firmware check</button>
+          <noscript><p>Enable JavaScript to use the browser installer, or download the firmware and use esptool.</p></noscript>
+          <div class="card-links"><a id="download" href="firmware/nwia-heltec-v3-v0.1.0-pilot.1-merged.bin" download>Download merged image</a><a id="release-link" href="https://github.com/john8675309/NWIA-MeshCore-MQTT/releases/tag/v0.1.0-pilot.1">Release notes &amp; checksums</a></div>
+        </section>
+      </div>
+      <section class="after-install" aria-labelledby="after-heading">
+        <div><div class="eyebrow">AFTER THE INSTALL</div><h2 id="after-heading">Make it your gateway.</h2><p>The firmware contains no operator credentials or private channel key. Use the setup guide or the release’s optional Python helper to enter yours locally.</p></div>
+        <div class="setup-details"><p><strong>App login:</strong> choose a 12–15 character admin password for standard companion firmware. Symbols such as <code>*</code> work.</p><p><strong>First message:</strong> after enabling the bridge and rebooting, wait 65 seconds. Test reception on another radio in both directions.</p><a class="guide-button" href="https://github.com/john8675309/NWIA-MeshCore-MQTT/blob/main/nwia/README.md">Open the setup guide</a></div>
+      </section>
+      <details><summary>USB connection not appearing?</summary><p>Check that your cable supports data, close serial monitors and select the board’s USB port. If connection fails, hold BOOT, tap RESET, release BOOT and try again. Safari and browsers on iPhone/iPad are not supported by this installer. Firmware downloads remain available above.</p></details>
+      <details><summary>What is tested, and what is still experimental?</summary><p>Single-gateway tests passed for RF-to-MQTT, MQTT-to-RF reception, duplicate suppression and local RF retransmission during a broker outage. Two-site, Wi-Fi/router-loss, overlap and long-duration testing remain. Begin with one gateway per overlapping RF coverage area.</p><a href="https://github.com/john8675309/NWIA-MeshCore-MQTT/blob/main/nwia/VALIDATION.md">Read the validation record</a></details>
+      <details><summary>Does this update an existing NWIA gateway without changing settings?</summary><p>This page installs the merged image and can erase saved settings. To preserve settings on a compatible NWIA app0 installation, use the separate app-only release image and the update instructions. Back up first.</p><a href="https://github.com/john8675309/NWIA-MeshCore-MQTT/blob/main/nwia/releases/FLASHING.md">Read the update instructions</a></details>
+    </main>
+    <footer><span>Northwest Iowa Mesh · Open-source pilot firmware</span><span>Based on <a href="https://github.com/meshcore-dev/MeshCore">MeshCore</a> · Installer by <a href="https://esphome.github.io/esp-web-tools/">ESP Web Tools</a></span></footer>
+  </div>
+</body>
+</html>
