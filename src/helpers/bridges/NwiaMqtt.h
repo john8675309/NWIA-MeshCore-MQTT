@@ -1,0 +1,45 @@
+#pragma once
+#ifdef NWIA_MQTT
+#include <Arduino.h>
+#include <Mesh.h>
+#include <Preferences.h>
+#include <atomic>
+#include <freertos/FreeRTOS.h>
+#include <freertos/queue.h>
+#include <freertos/task.h>
+#include "../../../nwia/BridgeCore.h"
+
+class NwiaMqtt {
+ public:
+  void begin(mesh::PacketManager* manager);
+  void loop();
+  void heard(mesh::Packet* packet);
+  void sent(mesh::Packet* packet);
+  bool command(char* line, char* reply);
+  bool active() const { return enabled.load(); }
+ private:
+  struct Config {
+    char ssid[33]{}, wifiPassword[65]{}, host[96]{}, user[65]{}, password[97]{};
+    char group[33]{}, keyHex[33]{};
+    uint16_t port = 8883;
+  } config;
+  struct Wire { uint16_t size; uint8_t bytes[nwia::kMaxWire]; uint32_t queuedAt; };
+  struct Pending { bool used = false; uint32_t due, expires; uint8_t raw[250]; uint8_t size; uint8_t hash[16]; } pending[4];
+  mesh::PacketManager* manager = nullptr;
+  Preferences prefs;
+  QueueHandle_t outQueue = nullptr, inQueue = nullptr;
+  TaskHandle_t task = nullptr;
+  uint8_t origin[6]{}, channelKey[32]{}, channelHash = 0;
+  char nodeId[13]{}, pubTopic[120]{}, subTopic[120]{};
+  nwia::Cache<256> cache;
+  uint32_t bootAt = 0, nextInject = 0, nextPublish = 0;
+  std::atomic<bool> enabled{false}, dirty{false}, connected{false}, ready{false};
+  std::atomic<int> mqttState{-1}, tlsError{0};
+  std::atomic<uint32_t> published{0}, accepted{0}, dropped{0}, suppressed{0};
+  bool allowed(const mesh::Packet& p) const;
+  void fingerprint(const mesh::Packet& p, uint8_t hash[16]) const;
+  static void workerEntry(void* self);
+  void worker();
+};
+extern NwiaMqtt nwiaMqtt;
+#endif

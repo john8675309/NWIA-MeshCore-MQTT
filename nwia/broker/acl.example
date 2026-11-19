@@ -1,0 +1,9 @@
+# One username per gateway. Replace each MAC suffix using get nwia.status.
+# group pilot is shared by these gateways; transmit at one gateway per RF area.
+user gateway-a
+topic write nwiamesh/v1/pilot/packets/aabbccddeeff
+topic read nwiamesh/v1/pilot/packets/+
+
+user gateway-b
+topic write nwiamesh/v1/pilot/packets/112233445566
+topic read nwiamesh/v1/pilot/packets/+

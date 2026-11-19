@@ -1,0 +1,69 @@
+[
+  {
+    "owner": "adafruit",
+    "name": "Adafruit SSD1306",
+    "version": "2.5.13",
+    "sha256": "8378976b3ecdbf43eef1fc779476e82b41c5ba7ec68e56a944f496c7f0722633",
+    "url": "https://dl.registry.platformio.org/download/adafruit/library/Adafruit%20SSD1306/2.5.13/AdafruitSSD1306-2.5.13.tar.gz"
+  },
+  {
+    "owner": "adafruit",
+    "name": "RTClib",
+    "version": "2.1.4",
+    "sha256": "9939e87c696879d7b34751ab6bd85d111e4a94f59698291c4c7979005ed53070",
+    "url": "https://dl.registry.platformio.org/download/adafruit/library/RTClib/2.1.4/RTClib-2.1.4.tar.gz"
+  },
+  {
+    "owner": "electroniccats",
+    "name": "CayenneLPP",
+    "version": "1.6.1",
+    "sha256": "e3717ac5f6c17ee617cc129506989973acdd40ada8724c7cd1fad8c21e784423",
+    "url": "https://dl.registry.platformio.org/download/electroniccats/library/CayenneLPP/1.6.1/CayenneLPP-1.6.1.tar.gz"
+  },
+  {
+    "owner": "rweather",
+    "name": "Crypto",
+    "version": "0.4.0",
+    "sha256": "1867740aad0d61bdcbac25f6dbc8eefe6eed9e7b37f48d9d0b9d80500ad431e0",
+    "url": "https://dl.registry.platformio.org/download/rweather/library/Crypto/0.4.0/Crypto-0.4.0.tar.gz"
+  },
+  {
+    "owner": "bakercp",
+    "name": "CRC32",
+    "version": "2.0.1",
+    "sha256": "d7e26c5ae075ccce98f2028e661571c80320a55e378a2cb1d3f0daba6e1f23c9",
+    "url": "https://dl.registry.platformio.org/download/bakercp/library/CRC32/2.0.1/CRC32-2.0.1.tar.gz"
+  },
+  {
+    "owner": "adafruit",
+    "name": "Adafruit BusIO",
+    "version": "1.17.4",
+    "sha256": "406146081ca584ffa30264235f270521b1335d69d7b760807c650e502c323862",
+    "url": "https://dl.registry.platformio.org/download/adafruit/library/Adafruit%20BusIO/1.17.4/AdafruitBusIO-1.17.4.tar.gz"
+  },
+  {
+    "owner": "knolleary",
+    "name": "PubSubClient",
+    "version": "2.8",
+    "sha256": "2ffda9c356d109224218da192fdeeab6f024ee8b25bed61a26dc56e38610288a",
+    "url": "https://dl.registry.platformio.org/download/knolleary/library/PubSubClient/2.8/PubSubClient-2.8.tar.gz"
+  },
+  {
+    "owner": "adafruit",
+    "name": "Adafruit GFX Library",
+    "version": "1.13.0",
+    "sha256": "883ba993ed60ac3e6f0aa722349c794207692d8449df0f196df2629098d079f5",
+    "url": "https://dl.registry.platformio.org/download/adafruit/library/Adafruit%20GFX%20Library/1.13.0/AdafruitGFXLibrary-1.13.0.tar.gz"
+  },
+  {
+    "name": "RadioLib",
+    "commit": "6d8934836678d8894e3d556550475b37dce3e2b6",
+    "url": "https://github.com/jgromes/RadioLib.git"
+  },
+  {
+    "name": "Melopero RV3028",
+    "version": "1.2.0",
+    "commit": "d3b452a565aa98ae7aff669ad2a9389b54d8aec2",
+    "url": "https://github.com/melopero/Melopero_RV-3028_Arduino_Library.git"
+  }
+]
