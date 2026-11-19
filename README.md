@@ -22,6 +22,10 @@ production-ready or exactly-once delivery claim.
 
 ## Download and flash
 
+**[Open the browser flasher](https://john8675309.github.io/NWIA-MeshCore-MQTT/)**
+to install directly over USB in desktop Chrome or Edge.
+
+
 [Download prebuilt firmware from Releases](https://github.com/john8675309/NWIA-MeshCore-MQTT/releases).
 Choose the **merged** image for a first installation and flash it at **0x0**.
 [Flashing instructions](nwia/releases/FLASHING.md) cover browser flashing,

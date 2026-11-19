@@ -1,0 +1,17 @@
+{
+  "name": "NWIA MeshCore for Heltec V3",
+  "version": "v0.1.0-pilot.1",
+  "new_install_prompt_erase": true,
+  "new_install_improv_wait_time": 0,
+  "builds": [
+    {
+      "chipFamily": "ESP32-S3",
+      "parts": [
+        {
+          "path": "firmware/nwia-heltec-v3-v0.1.0-pilot.1-merged.bin",
+          "offset": 0
+        }
+      ]
+    }
+  ]
+}

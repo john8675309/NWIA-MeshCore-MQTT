@@ -25,6 +25,12 @@ Check the download against `SHA256SUMS.txt` (Linux: `sha256sum -c`; macOS:
 
 ## Option A: browser flasher
 
+The simplest option is the [NWIA Heltec V3 web flasher](https://john8675309.github.io/NWIA-MeshCore-MQTT/).
+It selects this release's merged image, verifies its download checksum and
+opens the USB installer. Follow the on-page board/backup and setup instructions.
+The generic Espressif tool below remains an alternative.
+
+
 1. Connect the board to your computer with a USB data cable. Close any serial
    monitors or apps using its USB port.
 2. Open [Espressif ESP Tool](https://espressif.github.io/esptool-js/) in a
